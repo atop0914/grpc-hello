@@ -1,15 +1,34 @@
-# Binaries for programs and plugins
+# Binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
+grpc-hello
+grpc-hello-test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
+# Generated files
+proto/**/*.pb.go
+proto/**/*.pb.gw.go
+proto/**/*_grpc.pb.go
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Google APIs (we don't need to track these)
+google/

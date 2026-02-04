@@ -1,111 +1,92 @@
 # gRPC-Hello
 
-A comprehensive gRPC demonstration project in Go with gRPC-Gateway integration, providing both gRPC and RESTful HTTP APIs. This enhanced version includes advanced features like streaming, statistics, and internationalization.
+A production-ready gRPC microservice with HTTP/JSON gateway in Go, featuring multi-language support, statistics tracking, and comprehensive monitoring.
 
-## Features
+## 🚀 Features
 
-- ✅ **gRPC Service**: High-performance RPC communication
-- ✅ **gRPC-Gateway**: HTTP/JSON RESTful API gateway
-- ✅ **Multiple Endpoints**: Both gRPC and HTTP interfaces
-- ✅ **Health Checks**: Built-in health monitoring
-- ✅ **Metrics**: Prometheus metrics integration
-- ✅ **Graceful Shutdown**: Proper cleanup on termination
-- ✅ **Configuration**: Flexible configuration options via env vars
-- ✅ **Error Handling**: Comprehensive error management
-- ✅ **Streaming Support**: Server-side and client-side streaming
-- ✅ **Statistics Tracking**: Request counting and analysis
-- ✅ **Internationalization**: Multi-language greetings
-- ✅ **Rate Limiting**: Prevents abuse
-- ✅ **API Documentation**: Built-in API docs endpoint
-- ✅ **Docker Support**: Ready for container deployment
-- ✅ **Cross-platform Builds**: Easy deployment across systems
+- **gRPC Service**: High-performance RPC communication
+- **HTTP/JSON Gateway**: Automatic RESTful API via gRPC-Gateway
+- **Multi-language Support**: International greetings in 9+ languages
+- **Real-time Statistics**: Request counting and analytics
+- **Health Monitoring**: Built-in health checks
+- **Prometheus Metrics**: Production-grade observability
+- **Graceful Shutdown**: Safe service termination
+- **Docker Ready**: Container-first design
+- **Cross-platform**: Build for Linux/macOS/Windows
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   HTTP Client   │────│  gRPC-Gateway    │────│   gRPC Server   │
-│   (REST/JSON)   │    │ (HTTP/JSON ->    │    │  (Protocol     │
-└─────────────────┘    │  gRPC Protocol)  │    │   Buffers)     │
+│   (REST/JSON)   │    │ (HTTP ↔ gRPC)    │    │  (Protocol     │
+└─────────────────┘    │   Translation    │    │   Buffers)     │
                        └──────────────────┘    └─────────────────┘
                               │                        │
                        ┌──────────────────┐    ┌─────────────────┐
-                       │     Gin Router   │    │  Statistics &   │
+                       │     Gin Router   │    │  Stats &        │
                        │  (middleware,    │    │   Monitoring    │
-                       │   metrics, etc)  │    │   Engine        │
+                       │   metrics)       │    │   Engine        │
                        └──────────────────┘    └─────────────────┘
 ```
 
-## Prerequisites
+## 🛠️ Prerequisites
 
 - Go 1.22+
-- Protocol Buffers (protobuf) compiler (optional, for development)
 - Git
 
-## Installation
+## 🚀 Quick Start
+
+### Clone and Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/atop0914/grpc-hello.git
+git clone git@github.com:atop0914/grpc-hello.git
 cd grpc-hello
 
 # Install dependencies
 make deps
 
-# Build the application
+# Build the service
 make build
 
-# Or run directly
-go run main.go
-```
-
-## Quick Start
-
-### Running the Server
-
-```bash
-# Run with default settings
+# Run the service
 make run
-
-# Or run the built binary
-./grpc-hello
-
-# With environment variables
-GRPC_PORT=9090 HTTP_PORT=9091 ENABLE_DEBUG=true make run
 ```
 
-### Using the Client
+### Default Endpoints
 
-```bash
-# Run the client
-go run client/client.go
+- **gRPC**: `localhost:8080`
+- **HTTP**: `localhost:8090`
+- **Metrics**: `localhost:8090/metrics`
+- **Health**: `localhost:8090/health`
 
-# With custom name
-go run client/client.go --name="Alice"
+## 📡 API Usage
 
-# With custom server address
-go run client/client.go --addr="localhost:8090" --name="Bob"
-```
-
-### Available Endpoints
-
-#### gRPC Endpoints
-- `localhost:8080` - Main gRPC service
-
-#### HTTP Endpoints
-- `GET /health` - Health check
-- `GET /metrics` - Prometheus metrics
-- `POST /rpc/v1/sayHello` - Basic greeting endpoint
-- `POST /rpc/v1/sayHelloMultiple` - Multiple greetings endpoint
-- `GET /rpc/v1/greetingStats` - Statistics endpoint
-
-### Example API Calls
+### gRPC Client
 
 ```bash
 # Basic greeting
+go run client/client.go
+
+# Custom name
+go run client/client.go --name="Alice"
+
+# Custom server
+go run client/client.go --addr="localhost:9090" --name="Bob"
+```
+
+### HTTP API
+
+```bash
+# Basic greeting (English)
 curl -X POST http://localhost:8090/rpc/v1/sayHello \
   -H "Content-Type: application/json" \
   -d '{"name_test": "World", "language": "en"}'
+
+# International greeting (Chinese)
+curl -X POST http://localhost:8090/rpc/v1/sayHello \
+  -H "Content-Type: application/json" \
+  -d '{"name_test": "世界", "language": "zh"}'
 
 # Multiple greetings
 curl -X POST http://localhost:8090/rpc/v1/sayHelloMultiple \
@@ -114,104 +95,127 @@ curl -X POST http://localhost:8090/rpc/v1/sayHelloMultiple \
 
 # Get statistics
 curl -X GET http://localhost:8090/rpc/v1/greetingStats
-
-# International greeting
-curl -X POST http://localhost:8090/rpc/v1/sayHello \
-  -H "Content-Type: application/json" \
-  -d '{"name_test": "世界", "language": "zh"}'
 ```
 
-## Configuration Options
-
-The application supports the following configuration options:
+## ⚙️ Configuration
 
 ### Environment Variables
-- `GRPC_PORT`: Port for gRPC server (default: 8080)
-- `HTTP_PORT`: Port for HTTP server (default: 8090)
-- `ENABLE_DEBUG`: Enable debug mode (default: false)
-- `SERVER_TIMEOUT`: Server timeout in seconds (default: 30)
-- `LOG_LEVEL`: Log level (default: info)
-- `ENABLE_REFLECTION`: Enable gRPC reflection (default: matches debug mode)
-- `ENABLE_STATS`: Enable statistics tracking (default: true)
 
-## Building and Deployment
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GRPC_PORT` | gRPC server port | `8080` |
+| `HTTP_PORT` | HTTP server port | `8090` |
+| `ENABLE_DEBUG` | Debug mode | `false` |
+| `SERVER_TIMEOUT` | Server timeout (seconds) | `30` |
+| `LOG_LEVEL` | Logging level | `info` |
+| `ENABLE_REFLECTION` | gRPC reflection | `false` |
+| `ENABLE_STATS` | Statistics tracking | `true` |
 
-### Build Options
+### Runtime Configuration
+
+```bash
+# Custom ports
+GRPC_PORT=9090 HTTP_PORT=9091 make run
+
+# Enable debug mode
+ENABLE_DEBUG=true make run
+```
+
+## 🏗️ Building
+
+### Single Platform
 
 ```bash
 # Build for current platform
 make build
 
-# Build for Linux
-make build-linux
+# Run directly
+go run main.go
+```
 
-# Build for macOS
-make build-mac
+### Cross-platform Builds
 
-# Build for Windows
-make build-windows
-
-# Build all platforms
+```bash
+# Build for all platforms
 make build-all
 
-# Clean build artifacts
+# Build specific platforms
+make build-linux    # Linux binary
+make build-mac      # macOS binary  
+make build-windows  # Windows binary
+
+# Clean artifacts
 make clean
 ```
 
-### Docker Deployment
+## 🐳 Docker Deployment
 
 ```bash
-# Build Docker image
+# Build image
 docker build -t grpc-hello .
 
-# Run in Docker
+# Run container
 docker run -p 8080:8080 -p 8090:8090 grpc-hello
+
+# Run with custom configuration
+docker run -e GRPC_PORT=9090 -e HTTP_PORT=9091 -p 9090:9090 -p 9091:9091 grpc-hello
 ```
 
-### Cross-platform Binary Distribution
+## 🌍 Supported Languages
 
-```bash
-# Build binaries for all platforms
-make build-all
+| Code | Language | Greeting |
+|------|----------|----------|
+| `en` | English | Hello |
+| `zh` | Chinese | 你好 |
+| `es` | Spanish | Hola |
+| `fr` | French | Bonjour |
+| `ja` | Japanese | こんにちは |
+| `ko` | Korean | 안녕하세요 |
+| `ru` | Russian | Привет |
+| `de` | German | Hallo |
+| `it` | Italian | Ciao |
 
-# Binaries will be created as:
-# - grpc-hello-linux
-# - grpc-hello-mac
-# - grpc-hello-windows.exe
-```
+## 📊 Monitoring & Observability
 
-## Project Structure
+### Metrics
+
+- **Prometheus Endpoint**: `GET /metrics`
+- **Health Check**: `GET /health`
+- **Statistics**: `GET /rpc/v1/greetingStats`
+
+### Key Metrics Tracked
+
+- Total requests served
+- Language distribution
+- Request patterns
+- Service health status
+
+## 📁 Project Structure
 
 ```
 grpc-hello/
-├── main.go                   # Main application entry point
-├── go.mod                    # Go module definition
-├── go.sum                    # Go module checksums
-├── Makefile                  # Build automation
-├── Dockerfile                # Container configuration
-├── config/
-│   └── config.go             # Configuration management
-├── client/
-│   └── client.go             # gRPC client example
-├── proto/
+├── main.go               # Core gRPC service
+├── config/               # Configuration management
+│   └── config.go
+├── client/               # gRPC client example
+│   └── client.go
+├── proto/                # Protocol buffers
 │   └── helloworld/
-│       └── hello_world.proto # Protocol buffer definitions
-│       └── hello_world.pb.go # Generated Go code
-│       └── hello_world_grpc.pb.go # Generated gRPC code
-│       └── hello_world.pb.gw.go # Generated gateway code
-├── route/
-│   └── route.go              # HTTP route definitions
+│       ├── hello_world.proto      # Service definition
+│       ├── hello_world.pb.go      # Generated Go
+│       ├── hello_world_grpc.pb.go # Generated gRPC
+│       └── hello_world.pb.gw.go   # Generated gateway
+├── route/                # HTTP routes
+│   └── route.go
+├── Makefile              # Build automation
+├── Dockerfile            # Container spec
+├── go.mod                # Dependencies
 └── README.md
 ```
 
-## Development
-
-### Building and Testing
+## 🧪 Testing
 
 ```bash
-# Build the application
-make build
-
 # Run tests
 make test
 
@@ -219,23 +223,14 @@ make test
 make deps
 ```
 
-## Internationalization
+## 🤝 Contributing
 
-Supported languages:
-- English: "Hello"
-- Chinese: "你好"
-- Spanish: "Hola"
-- French: "Bonjour"
-- Japanese: "こんにちは"
-- Korean: "안녕하세요"
-- Russian: "Привет"
-- German: "Hallo"
-- Italian: "Ciao"
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## Monitoring
+## 📄 License
 
-The service exposes Prometheus metrics at `/metrics` endpoint.
-
-## License
-
-MIT License - See LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.

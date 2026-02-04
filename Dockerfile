@@ -1,0 +1,47 @@
+# Use multi-stage build to keep the final image small
+FROM golang:1.22.2-alpine AS builder
+
+# Install git (needed for go mod downloads)
+RUN apk add --no-cache git
+
+# Set the working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy the rest of the source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o grpc-hello .
+
+# Final stage: use alpine image for smallest footprint
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+# Create a non-root user
+RUN adduser -D -s /bin/sh grpc-user
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder /app/grpc-hello .
+
+# Change ownership to grpc-user
+RUN chown grpc-user:grpc-user grpc-hello
+
+# Switch to non-root user
+USER grpc-user
+
+# Expose ports
+EXPOSE 8080 8090
+
+# Run the application
+CMD ["./grpc-hello"]

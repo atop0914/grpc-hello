@@ -2,29 +2,64 @@ package main
 
 import (
 	"context"
-	pb "grpc-hello/proto/helloworld"
+	"flag"
 	"log"
+	"time"
 
+	pb "grpc-hello/proto/helloworld"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-const PORT = "8080"
+var (
+	addr = flag.String("addr", "localhost:8080", "the address to connect to")
+	name = flag.String("name", "World", "name to greet")
+)
 
 func main() {
-	conn, err := grpc.Dial(":"+PORT, grpc.WithInsecure())
+	flag.Parse()
+
+	// Set up a connection to the server
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("grpc.Dial err: %v", err)
+		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 
 	client := pb.NewGreeterClient(conn)
-	resp, err := client.SayHello(context.Background(), &pb.HelloRequest{
-		NameTest: "",
-	})
 
+	// Contact the server and print out its response.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// Test basic greeting
+	r, err := client.SayHello(ctx, &pb.HelloRequest{NameTest: *name})
 	if err != nil {
-		log.Fatalf("client.Search err: %v", err)
+		log.Fatalf("could not greet: %v", err)
+	}
+	log.Printf("Greeting: %s", r.TestMessage)
+
+	// Test multiple greetings
+	multiReq := &pb.HelloMultipleRequest{
+		Names:         []string{"Alice", "Bob", "Charlie"},
+		CommonMessage: "Welcome to our service!",
+	}
+	multiResp, err := client.SayHelloMultiple(ctx, multiReq)
+	if err != nil {
+		log.Printf("could not get multiple greetings: %v", err)
+	} else {
+		log.Printf("Got %d greetings", len(multiResp.Greetings))
+		for _, greeting := range multiResp.Greetings {
+			log.Printf("  - %s", greeting.TestMessage)
+		}
 	}
 
-	log.Printf("resp: %s", resp.String())
+	// Test statistics
+	statsReq := &pb.GreetingStatsRequest{}
+	statsResp, err := client.GetGreetingStats(ctx, statsReq)
+	if err != nil {
+		log.Printf("could not get stats: %v", err)
+	} else {
+		log.Printf("Total requests: %d, Unique names: %d", statsResp.TotalRequests, statsResp.UniqueNames)
+	}
 }

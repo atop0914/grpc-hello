@@ -1,34 +1,37 @@
 # Binaries
+grpc-hello
+grpc-hello-*
+
+# Build artifacts
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
-*.test
-grpc-hello
-grpc-hello-test
-
-# Generated files
-proto/**/*.pb.go
-proto/**/*.pb.gw.go
-proto/**/*_grpc.pb.go
-
-# Dependencies
-vendor/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
+# Logs
+*.log
+logs/
+
 # Temporary files
 tmp/
 temp/
+.DS_Store
 *.tmp
 *.temp
 
-# Google APIs (we don't need to track these)
-google/
+# Go coverage
+coverage.out
+*.prof
+
+# Vendor directory (if using vendor)
+vendor/

@@ -163,6 +163,8 @@ docker run -e GRPC_PORT=9090 -e HTTP_PORT=9091 -p 9090:9090 -p 9091:9091 grpc-he
 
 ## 🌍 Supported Languages
 
+The service supports language selection via the `language` field in the request. Currently implemented languages:
+
 | Code | Language | Greeting |
 |------|----------|----------|
 | `en` | English | Hello |
@@ -174,6 +176,16 @@ docker run -e GRPC_PORT=9090 -e HTTP_PORT=9091 -p 9090:9090 -p 9091:9091 grpc-he
 | `ru` | Russian | Привет |
 | `de` | German | Hallo |
 | `it` | Italian | Ciao |
+
+Additional language aliases are also supported:
+- `chinese` (same as `zh`)
+- `spanish` (same as `es`)
+- `french` (same as `fr`)
+- `japanese` (same as `ja`)
+- `korean` (same as `ko`)
+- `russian` (same as `ru`)
+- `german` (same as `de`)
+- `italian` (same as `it`)
 
 ## 📊 Monitoring & Observability
 
@@ -245,7 +257,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **gRPC服务**: 高性能RPC通信
 - **HTTP/JSON网关**: 通过gRPC-Gateway自动提供RESTful API
-- **多语言支持**: 支持9种以上语言的国际问候
+- **多语言支持**: 支持9种语言的国际问候及别名
 - **实时统计**: 请求计数和分析
 - **健康监控**: 内置健康检查
 - **Prometheus指标**: 生产级可观测性
@@ -347,7 +359,7 @@ curl -X GET http://localhost:8090/rpc/v1/greetingStats
 | `ENABLE_DEBUG` | 调试模式 | `false` |
 | `SERVER_TIMEOUT` | 服务器超时(秒) | `30` |
 | `LOG_LEVEL` | 日志级别 | `info` |
-| `ENABLE_REFLECTION` | gRPC反射 | `false` |
+| `ENABLE_REFLECTION` | GPRC反射 | `false` |
 | `ENABLE_STATS` | 统计跟踪 | `true` |
 
 ### 运行时配置
@@ -402,6 +414,8 @@ docker run -e GRPC_PORT=9090 -e HTTP_PORT=9091 -p 9090:9090 -p 9091:9091 grpc-he
 
 ## 🌍 支持的语言
 
+服务支持通过请求中的`language`字段选择语言。当前实现的语言：
+
 | 代码 | 语言 | 问候语 |
 |------|------|--------|
 | `en` | 英语 | Hello |
@@ -413,6 +427,16 @@ docker run -e GRPC_PORT=9090 -e HTTP_PORT=9091 -p 9090:9090 -p 9091:9091 grpc-he
 | `ru` | 俄语 | Привет |
 | `de` | 德语 | Hallo |
 | `it` | 意大利语 | Ciao |
+
+还支持以下语言别名：
+- `chinese` (同 `zh`)
+- `spanish` (同 `es`)
+- `french` (同 `fr`)
+- `japanese` (同 `ja`)
+- `korean` (同 `ko`)
+- `russian` (同 `ru`)
+- `german` (同 `de`)
+- `italian` (同 `it`)
 
 ## 📊 监控与可观测性
 

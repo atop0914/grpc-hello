@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -42,7 +43,7 @@ func LoadConfig() *Config {
 			LogLevel:    getEnvOrDefault("LOG_LEVEL", "info"),
 		},
 		Features: FeatureFlags{
-			EnableReflection: getEnvBoolOrDefault("ENABLE_REFLECTION", false), // Match debug mode by default
+			EnableReflection: getEnvBoolOrDefault("ENABLE_REFLECTION", false),
 			EnableStats:      getEnvBoolOrDefault("ENABLE_STATS", true),
 			EnableMetrics:    getEnvBoolOrDefault("METRICS_ENABLED", true),
 			MaxGreetings:     getEnvIntOrDefault("MAX_GREETINGS", 100),
@@ -52,7 +53,18 @@ func LoadConfig() *Config {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
-	// Add validation logic here if needed
+	if c.Server.GRPCPort == "" {
+		return fmt.Errorf("GRPC_PORT cannot be empty")
+	}
+	
+	if c.Server.HTTPPort == "" {
+		return fmt.Errorf("HTTP_PORT cannot be empty")
+	}
+	
+	if c.Features.MaxGreetings <= 0 {
+		return fmt.Errorf("MAX_GREETINGS must be greater than 0")
+	}
+	
 	return nil
 }
 
@@ -68,7 +80,7 @@ func getEnvBoolOrDefault(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
 		// Parse boolean: "true", "1", "yes", "on" => true; others => false
 		switch value {
-		case "true", "1", "yes", "on":
+		case "true", "1", "yes", "on", "True", "TRUE":
 			return true
 		default:
 			return false
@@ -82,6 +94,8 @@ func getEnvIntOrDefault(key string, defaultValue int) int {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
 		}
+		// Log warning about invalid integer value
+		fmt.Fprintf(os.Stderr, "Warning: Invalid integer value for %s: %s, using default: %d\n", key, value, defaultValue)
 	}
 	return defaultValue
 }

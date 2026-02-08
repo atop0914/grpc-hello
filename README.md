@@ -1,8 +1,8 @@
-# gRPC-Hello (重构版)
+# gRPC-Hello
 
 生产就绪的gRPC微服务，带HTTP/JSON网关、多语言支持、统计跟踪和全面监控。
 
-## 🏗️ 重构架构
+## 🏗️ 架构
 
 ```
 grpc-hello/
@@ -26,15 +26,13 @@ grpc-hello/
 │       └── server.go        # gRPC/HTTP服务启动
 ├── proto/                    # Protocol Buffers
 │   └── helloworld/
-├── route/                    # 路由扩展
-│   └── route.go
 ├── client/                   # gRPC客户端示例
 ├── Makefile                 # 构建脚本
 ├── Dockerfile               # 容器配置
 └── go.mod
 ```
 
-## ✨ 重构亮点
+## ✨ 项目亮点
 
 ### 1. 标准分层架构
 - **Handler层**：处理HTTP/gRPC请求
@@ -145,7 +143,7 @@ make docker-run
 ## 📝 更新日志
 
 ### v2.0.0 (2026-02-06)
-- ✨ 重构为标准分层架构
+- ✨ 优化为标准分层架构
 - ➕ 新增统一响应格式和错误码
 - ➕ 新增请求追踪ID
 - ➕ 新增CORS中间件

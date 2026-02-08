@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log"
 	"time"
@@ -102,12 +103,16 @@ func RequestBodyLogger() gin.HandlerFunc {
 	}
 }
 
-// Timeout 超时控制中间件
+// Timeout 超时控制中间件（优化版）
 func Timeout(timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Simple timeout handling via context
-		done := make(chan struct{})
+		// 使用 context 实现超时控制
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
 
+		c.Request = c.Request.WithContext(ctx)
+
+		done := make(chan struct{})
 		go func() {
 			c.Next()
 			close(done)
@@ -115,9 +120,11 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 
 		select {
 		case <-done:
-			// Completed normally
-		case <-time.After(timeout):
-			log.Printf("[%s] Request timeout after %v", c.GetHeader("X-Request-ID"), timeout)
+			// 请求正常完成
+		case <-ctx.Done():
+			// 超时
+			traceID := c.GetHeader("X-Request-ID")
+			log.Printf("[%s] Request timeout after %v", traceID, timeout)
 			c.AbortWithStatusJSON(504, gin.H{
 				"code":    504,
 				"message": "gateway timeout",

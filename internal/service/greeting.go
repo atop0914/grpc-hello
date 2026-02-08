@@ -23,15 +23,40 @@ type GreetingService struct {
 	nameFreq    map[string]int64
 	lastReq     time.Time
 	maxGreetings int
+	// 语言缓存
+	langCodeMap    map[string]*Language
+	langNameMap    map[string]*Language
+	langAliasesMap map[string]string
 }
 
 // NewGreetingService 创建问候服务
 func NewGreetingService(maxGreetings int) *GreetingService {
-	return &GreetingService{
+	svc := &GreetingService{
 		uniqueNames: make(map[string]int64),
 		nameFreq:    make(map[string]int64),
 		maxGreetings: maxGreetings,
+		langCodeMap:  make(map[string]*Language),
+		langNameMap:  make(map[string]*Language),
+		langAliasesMap: map[string]string{
+			"chinese":  "zh",
+			"spanish":  "es",
+			"french":   "fr",
+			"japanese": "ja",
+			"korean":   "ko",
+			"russian":  "ru",
+			"german":   "de",
+			"italian": "it",
+		},
 	}
+
+	// 初始化语言缓存
+	for i := range SupportedLanguages {
+		lang := &SupportedLanguages[i]
+		svc.langCodeMap[strings.ToLower(lang.Code)] = lang
+		svc.langNameMap[strings.ToLower(lang.Name)] = lang
+	}
+
+	return svc
 }
 
 // SupportedLanguages 支持的语言列表
@@ -47,32 +72,26 @@ var SupportedLanguages = []Language{
 	{Code: "it", Name: "Italian", Greeting: "Ciao"},
 }
 
-// GetGreeting 获取问候语
+// GetGreeting 获取问候语（使用缓存优化）
 func (s *GreetingService) GetGreeting(language string) string {
 	if language == "" {
 		return SupportedLanguages[0].Greeting
 	}
 
 	lang := strings.ToLower(language)
-	for _, l := range SupportedLanguages {
-		if strings.ToLower(l.Code) == lang || strings.ToLower(l.Name) == lang {
-			return l.Greeting
-		}
+
+	// 优先检查代码
+	if langData, ok := s.langCodeMap[lang]; ok {
+		return langData.Greeting
 	}
 
-	// Check aliases
-	aliases := map[string]string{
-		"chinese":  "zh",
-		"spanish":  "es",
-		"french":   "fr",
-		"japanese": "ja",
-		"korean":   "ko",
-		"russian":  "ru",
-		"german":   "de",
-		"italian": "it",
+	// 检查名称
+	if langData, ok := s.langNameMap[lang]; ok {
+		return langData.Greeting
 	}
 
-	if alias, ok := aliases[lang]; ok {
+	// 检查别名
+	if alias, ok := s.langAliasesMap[lang]; ok {
 		return s.GetGreeting(alias)
 	}
 

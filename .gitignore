@@ -35,3 +35,6 @@ coverage.out
 
 # Vendor directory (if using vendor)
 vendor/
+
+# Generated proto files
+proto/**/*.pb.go

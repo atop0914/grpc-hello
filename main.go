@@ -17,13 +17,9 @@ func main() {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
-	log.Printf("Starting gRPC-Hello Server...")
+	log.Printf("Starting Task Scheduler Server...")
 	log.Printf("Debug mode: %v", cfg.Server.EnableDebug)
-	log.Printf("Features - Stats: %v, Metrics: %v, Reflection: %v",
-		cfg.Features.EnableStats,
-		cfg.Features.EnableMetrics,
-		cfg.Features.EnableReflection,
-	)
+	log.Printf("HTTP server: %s", cfg.GetHTTPAddr())
 
 	// 创建并启动服务器
 	srv := server.NewServer(cfg)

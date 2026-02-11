@@ -2,7 +2,7 @@
 
 # Build the project
 build:
-	CGO_ENABLED=0 go build -o grpc-hello .
+	CGO_ENABLED=0 go build -o taskflow .
 
 # Run the project
 run:
@@ -21,7 +21,7 @@ proto-gen:
 
 # Clean build artifacts
 clean:
-	rm -f grpc-hello
+	rm -f taskflow
 
 # Test the project
 test:
@@ -29,13 +29,13 @@ test:
 
 # Build for different platforms
 build-linux:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o grpc-hello-linux .
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o taskflow-linux .
 
 build-mac:
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o grpc-hello-mac .
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o taskflow-darwin .
 
 build-windows:
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o grpc-hello-windows.exe .
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o taskflow.exe .
 
 # All builds
 build-all: build-linux build-mac build-windows
@@ -46,7 +46,7 @@ lint:
 
 # Docker
 docker-build:
-	docker build -t grpc-hello:latest .
+	docker build -t taskflow:latest .
 
 docker-run:
-	docker run -p 8080:8080 -p 8090:8090 grpc-hello:latest
+	docker run -p 8080:8080 -p 8090:8090 taskflow:latest

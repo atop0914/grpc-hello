@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"grpc-hello/internal/config"
-	"grpc-hello/internal/server"
+	"taskflow/internal/config"
+	"taskflow/internal/server"
 )
 
 func main() {

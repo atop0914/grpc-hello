@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"grpc-hello/internal/config"
-	"grpc-hello/internal/middleware"
+	"taskflow/internal/config"
+	"taskflow/internal/middleware"
 )
 
 // Server HTTP服务封装

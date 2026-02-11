@@ -385,6 +385,260 @@ func getEnvInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+// ValidateWorker 验证Worker配置（独立方法）
+func (c *Config) ValidateWorker() error {
+	return c.Worker.Validate()
+}
+
+// ValidateWorker 验证Worker配置
+func (w *WorkerConfig) Validate() error {
+	var errs []string
+
+	if w.Count <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_COUNT must be greater than 0, got %d", w.Count))
+	}
+	if w.Count > 100 {
+		errs = append(errs, fmt.Sprintf("WORKER_COUNT should not exceed 100, got %d", w.Count))
+	}
+
+	if w.QueueSize <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_QUEUE_SIZE must be greater than 0, got %d", w.QueueSize))
+	}
+	if w.QueueSize > 100000 {
+		errs = append(errs, fmt.Sprintf("WORKER_QUEUE_SIZE should not exceed 100000, got %d", w.QueueSize))
+	}
+
+	if w.RetryMax < 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_RETRY_MAX must be non-negative, got %d", w.RetryMax))
+	}
+	if w.RetryMax > 100 {
+		errs = append(errs, fmt.Sprintf("WORKER_RETRY_MAX should not exceed 100, got %d", w.RetryMax))
+	}
+
+	if w.RetryDelay < 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_RETRY_DELAY must be non-negative, got %d", w.RetryDelay))
+	}
+	if w.RetryDelay > 3600 {
+		errs = append(errs, fmt.Sprintf("WORKER_RETRY_DELAY should not exceed 3600 seconds, got %d", w.RetryDelay))
+	}
+
+	if w.Timeout <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_TIMEOUT must be greater than 0, got %d", w.Timeout))
+	}
+	if w.Timeout > 86400 {
+		errs = append(errs, fmt.Sprintf("WORKER_TIMEOUT should not exceed 86400 seconds (24h), got %d", w.Timeout))
+	}
+
+	if w.BatchSize <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_BATCH_SIZE must be greater than 0, got %d", w.BatchSize))
+	}
+	if w.BatchSize > 1000 {
+		errs = append(errs, fmt.Sprintf("WORKER_BATCH_SIZE should not exceed 1000, got %d", w.BatchSize))
+	}
+
+	if w.AutoScale {
+		if w.MinScale <= 0 {
+			errs = append(errs, fmt.Sprintf("WORKER_MIN_SCALE must be greater than 0 when auto-scaling, got %d", w.MinScale))
+		}
+		if w.MaxScale < w.MinScale {
+			errs = append(errs, fmt.Sprintf("WORKER_MAX_SCALE (%d) must be greater than or equal to WORKER_MIN_SCALE (%d)", w.MaxScale, w.MinScale))
+		}
+	}
+
+	if w.Heartbeat <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_HEARTBEAT must be greater than 0, got %d", w.Heartbeat))
+	}
+	if w.Heartbeat > 300 {
+		errs = append(errs, fmt.Sprintf("WORKER_HEARTBEAT should not exceed 300 seconds, got %d", w.Heartbeat))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// ValidateQueue 验证Queue配置（独立方法）
+func (c *Config) ValidateQueue() error {
+	return c.Queue.Validate()
+}
+
+// Validate 验证Queue配置
+func (q *QueueConfig) Validate() error {
+	var errs []string
+
+	if q.Name == "" {
+		errs = append(errs, "QUEUE_NAME cannot be empty")
+	}
+	if len(q.Name) > 255 {
+		errs = append(errs, fmt.Sprintf("QUEUE_NAME should not exceed 255 characters, got %d", len(q.Name)))
+	}
+
+	if q.Prefetch <= 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_PREFETCH must be greater than 0, got %d", q.Prefetch))
+	}
+	if q.Prefetch > 1000 {
+		errs = append(errs, fmt.Sprintf("QUEUE_PREFETCH should not exceed 1000, got %d", q.Prefetch))
+	}
+
+	if q.Timeout <= 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_TIMEOUT must be greater than 0, got %d", q.Timeout))
+	}
+	if q.Timeout > 86400 {
+		errs = append(errs, fmt.Sprintf("QUEUE_TIMEOUT should not exceed 86400 seconds (24h), got %d", q.Timeout))
+	}
+
+	if q.MaxLength < 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_MAX_LENGTH must be non-negative, got %d", q.MaxLength))
+	}
+
+	if q.Priority < 0 || q.Priority > 10 {
+		errs = append(errs, fmt.Sprintf("QUEUE_PRIORITY must be between 0 and 10, got %d", q.Priority))
+	}
+
+	if q.TTL < 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_TTL must be non-negative, got %d", q.TTL))
+	}
+	if q.TTL > 604800000 { // 7 days in milliseconds
+		errs = append(errs, fmt.Sprintf("QUEUE_TTL should not exceed 604800000 ms (7 days), got %d", q.TTL))
+	}
+
+	if q.Exchange != "" && len(q.Exchange) > 255 {
+		errs = append(errs, fmt.Sprintf("QUEUE_EXCHANGE should not exceed 255 characters, got %d", len(q.Exchange)))
+	}
+
+	if q.RoutingKey != "" && len(q.RoutingKey) > 255 {
+		errs = append(errs, fmt.Sprintf("QUEUE_ROUTING_KEY should not exceed 255 characters, got %d", len(q.RoutingKey)))
+	}
+
+	if q.DeadLetterExchange != "" && len(q.DeadLetterExchange) > 255 {
+		errs = append(errs, fmt.Sprintf("QUEUE_DLX should not exceed 255 characters, got %d", len(q.DeadLetterExchange)))
+	}
+
+	if q.DeadLetterQueue != "" && len(q.DeadLetterQueue) > 255 {
+		errs = append(errs, fmt.Sprintf("QUEUE_DLQ should not exceed 255 characters, got %d", len(q.DeadLetterQueue)))
+	}
+
+	if (q.DeadLetterExchange == "" && q.DeadLetterQueue != "") || (q.DeadLetterExchange != "" && q.DeadLetterQueue == "") {
+		errs = append(errs, "QUEUE_DLX and QUEUE_DLQ must both be set or both be empty")
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// ValidateDatabase 验证Database配置（独立方法）
+func (c *Config) ValidateDatabase() error {
+	return c.Database.Validate()
+}
+
+// Validate 验证Database配置
+func (d *DatabaseConfig) Validate() error {
+	var errs []string
+
+	// 验证Host
+	if d.Host == "" {
+		errs = append(errs, "DB_HOST cannot be empty")
+	}
+	if len(d.Host) > 255 {
+		errs = append(errs, fmt.Sprintf("DB_HOST should not exceed 255 characters, got %d", len(d.Host)))
+	}
+
+	// 验证Port
+	if err := validatePort(d.Port, "DB_PORT"); err != nil {
+		errs = append(errs, err.Error())
+	}
+
+	// 验证Name
+	if d.Name == "" {
+		errs = append(errs, "DB_NAME cannot be empty")
+	}
+	if len(d.Name) > 63 {
+		errs = append(errs, fmt.Sprintf("DB_NAME should not exceed 63 characters, got %d", len(d.Name)))
+	}
+
+	// 验证User（可选，但如果提供则验证）
+	if d.User != "" && len(d.User) > 63 {
+		errs = append(errs, fmt.Sprintf("DB_USER should not exceed 63 characters, got %d", len(d.User)))
+	}
+
+	// 验证SSLMode
+	validSSLModes := map[string]bool{
+		"disable": true, "require": true, "verify-full": true, "allow": true, "prefer": true,
+	}
+	if !validSSLModes[d.SSLMode] {
+		errs = append(errs, fmt.Sprintf("DB_SSL_MODE must be one of [disable, require, verify-full, allow, prefer], got %s", d.SSLMode))
+	}
+
+	// 验证连接池配置
+	if d.MaxOpenConns <= 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_OPEN_CONNS must be greater than 0, got %d", d.MaxOpenConns))
+	}
+	if d.MaxOpenConns > 1000 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_OPEN_CONNS should not exceed 1000, got %d", d.MaxOpenConns))
+	}
+
+	if d.MaxIdleConns < 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_IDLE_CONNS must be non-negative, got %d", d.MaxIdleConns))
+	}
+	if d.MaxIdleConns > d.MaxOpenConns {
+		errs = append(errs, fmt.Sprintf("DB_MAX_IDLE_CONNS (%d) cannot exceed DB_MAX_OPEN_CONNS (%d)", d.MaxIdleConns, d.MaxOpenConns))
+	}
+
+	if d.ConnMaxLifetime <= 0 {
+		errs = append(errs, fmt.Sprintf("DB_CONN_MAX_LIFETIME must be greater than 0, got %d", d.ConnMaxLifetime))
+	}
+	if d.ConnMaxLifetime > 3600 {
+		errs = append(errs, fmt.Sprintf("DB_CONN_MAX_LIFETIME should not exceed 3600 seconds (1h), got %d", d.ConnMaxLifetime))
+	}
+
+	if d.ConnMaxIdleTime < 0 {
+		errs = append(errs, fmt.Sprintf("DB_CONN_MAX_IDLE_TIME must be non-negative, got %d", d.ConnMaxIdleTime))
+	}
+	if d.ConnMaxIdleTime > 3600 {
+		errs = append(errs, fmt.Sprintf("DB_CONN_MAX_IDLE_TIME should not exceed 3600 seconds (1h), got %d", d.ConnMaxIdleTime))
+	}
+
+	if d.MaxRetries < 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_RETRIES must be non-negative, got %d", d.MaxRetries))
+	}
+	if d.MaxRetries > 100 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_RETRIES should not exceed 100, got %d", d.MaxRetries))
+	}
+
+	if d.RetryDelay < 0 {
+		errs = append(errs, fmt.Sprintf("DB_RETRY_DELAY must be non-negative, got %d", d.RetryDelay))
+	}
+	if d.RetryDelay > 60000 {
+		errs = append(errs, fmt.Sprintf("DB_RETRY_DELAY should not exceed 60000 ms (1m), got %d", d.RetryDelay))
+	}
+
+	if d.TablePrefix != "" && len(d.TablePrefix) > 16 {
+		errs = append(errs, fmt.Sprintf("DB_TABLE_PREFIX should not exceed 16 characters, got %d", len(d.TablePrefix)))
+	}
+
+	if d.PoolSize <= 0 {
+		errs = append(errs, fmt.Sprintf("DB_POOL_SIZE must be greater than 0, got %d", d.PoolSize))
+	}
+	if d.PoolSize > d.MaxOpenConns {
+		errs = append(errs, fmt.Sprintf("DB_POOL_SIZE (%d) cannot exceed DB_MAX_OPEN_CONNS (%d)", d.PoolSize, d.MaxOpenConns))
+	}
+
+	if d.MinIdleConns < 0 {
+		errs = append(errs, fmt.Sprintf("DB_MIN_IDLE_CONNS must be non-negative, got %d", d.MinIdleConns))
+	}
+	if d.MinIdleConns > d.PoolSize {
+		errs = append(errs, fmt.Sprintf("DB_MIN_IDLE_CONNS (%d) cannot exceed DB_POOL_SIZE (%d)", d.MinIdleConns, d.PoolSize))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
 // GetWorkerTimeout 获取Worker超时时间
 func (c *Config) GetWorkerTimeout() time.Duration {
 	c.mu.RLock()

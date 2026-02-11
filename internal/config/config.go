@@ -24,6 +24,25 @@ const (
 	DefaultMaxConns     = 1000
 	DefaultLogLevel     = "info"
 	DefaultMaxGreetings = 100
+
+	// Worker defaults
+	DefaultWorkerCount    = 4
+	DefaultWorkerQueueSize = 1000
+	DefaultWorkerRetryMax  = 3
+	DefaultWorkerRetryDelay = 5 // seconds
+
+	// Queue defaults
+	DefaultQueueName    = "default"
+	DefaultQueuePrefetch = 10
+	DefaultQueueTimeout = 300 // seconds
+
+	// Database defaults
+	DefaultDBHost         = "localhost"
+	DefaultDBPort         = "5432"
+	DefaultDBName         = "taskflow"
+	DefaultDBMaxOpenConns = 25
+	DefaultDBMaxIdleConns = 5
+	DefaultDBConnMaxLifetime = 300 // seconds
 )
 
 // ServerConfig 服务配置
@@ -45,11 +64,63 @@ type FeatureFlags struct {
 	MaxGreetings     int  `yaml:"max_greetings" env:"MAX_GREETINGS"`        // 最大问候数量，默认100
 }
 
+// WorkerConfig Worker配置
+type WorkerConfig struct {
+	Count       int    `yaml:"count" env:"WORKER_COUNT"`                     // Worker数量，默认4
+	QueueSize   int    `yaml:"queue_size" env:"WORKER_QUEUE_SIZE"`           // 每个Worker的队列大小，默认1000
+	RetryMax    int    `yaml:"retry_max" env:"WORKER_RETRY_MAX"`             // 最大重试次数，默认3
+	RetryDelay  int    `yaml:"retry_delay" env:"WORKER_RETRY_DELAY"`         // 重试延迟（秒），默认5
+	Timeout     int    `yaml:"timeout" env:"WORKER_TIMEOUT"`                  // Worker执行超时（秒），默认300
+	BatchSize   int    `yaml:"batch_size" env:"WORKER_BATCH_SIZE"`           // 批处理大小，默认10
+	AutoScale   bool   `yaml:"auto_scale" env:"WORKER_AUTO_SCALE"`          // 是否自动扩缩容
+	MinScale    int    `yaml:"min_scale" env:"WORKER_MIN_SCALE"`             // 最小Worker数量
+	MaxScale    int    `yaml:"max_scale" env:"WORKER_MAX_SCALE"`             // 最大Worker数量
+	Heartbeat   int    `yaml:"heartbeat" env:"WORKER_HEARTBEAT"`             // 心跳间隔（秒），默认30
+}
+
+// QueueConfig Queue配置
+type QueueConfig struct {
+	Name           string `yaml:"name" env:"QUEUE_NAME"`                           // 队列名称，默认default
+	Prefetch       int    `yaml:"prefetch" env:"QUEUE_PREFETCH"`                   // 预取数量，默认10
+	Timeout        int    `yaml:"timeout" env:"QUEUE_TIMEOUT"`                      // 队列超时（秒），默认300
+	MaxLength      int    `yaml:"max_length" env:"QUEUE_MAX_LENGTH"`               // 队列最大长度，0表示无限制
+	Priority       int    `yaml:"priority" env:"QUEUE_PRIORITY"`                   // 队列优先级，0-10，默认5
+	Durable        bool   `yaml:"durable" env:"QUEUE_DURABLE"`                     // 是否持久化
+	AutoDelete     bool   `yaml:"auto_delete" env:"QUEUE_AUTO_DELETE"`             // 是否自动删除
+	Exchange       string `yaml:"exchange" env:"QUEUE_EXCHANGE"`                   // 交换机名称
+	RoutingKey     string `yaml:"routing_key" env:"QUEUE_ROUTING_KEY"`             // 路由键
+	DeadLetterExchange string `yaml:"dead_letter_exchange" env:"QUEUE_DLX"`         // 死信交换机
+	DeadLetterQueue    string `yaml:"dead_letter_queue" env:"QUEUE_DLQ"`           // 死信队列
+	TTL            int    `yaml:"ttl" env:"QUEUE_TTL"`                             // 消息TTL（毫秒）
+}
+
+// DatabaseConfig 数据库配置
+type DatabaseConfig struct {
+	Host            string `yaml:"host" env:"DB_HOST"`                       // 数据库主机，默认localhost
+	Port            string `yaml:"port" env:"DB_PORT"`                       // 数据库端口，默认5432
+	Name            string `yaml:"name" env:"DB_NAME"`                       // 数据库名称，默认taskflow
+	User            string `yaml:"user" env:"DB_USER"`                       // 数据库用户
+	Password        string `yaml:"password" env:"DB_PASSWORD"`               // 数据库密码
+	SSLMode         string `yaml:"ssl_mode" env:"DB_SSL_MODE"`               // SSL模式，默认disable
+	MaxOpenConns    int    `yaml:"max_open_conns" env:"DB_MAX_OPEN_CONNS"`    // 最大打开连接数，默认25
+	MaxIdleConns    int    `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS"`    // 最大空闲连接数，默认5
+	ConnMaxLifetime int    `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME"` // 连接最大生命周期（秒），默认300
+	ConnMaxIdleTime int    `yaml:"conn_max_idle_time" env:"DB_CONN_MAX_IDLE_TIME"` // 空闲连接最大时间（秒），默认60
+	MaxRetries      int    `yaml:"max_retries" env:"DB_MAX_RETRIES"`          // 最大重试次数，默认3
+	RetryDelay      int    `yaml:"retry_delay" env:"DB_RETRY_DELAY"`          // 重试延迟（毫秒），默认100
+	TablePrefix     string `yaml:"table_prefix" env:"DB_TABLE_PREFIX"`        // 表前缀，默认空
+	PoolSize        int    `yaml:"pool_size" env:"DB_POOL_SIZE"`              // 连接池大小
+	MinIdleConns    int    `yaml:"min_idle_conns" env:"DB_MIN_IDLE_CONNS"`    // 最小空闲连接数
+}
+
 // Config 配置
 type Config struct {
-	Server   ServerConfig  `yaml:"server"`
-	Features FeatureFlags  `yaml:"features"`
-	mu       sync.RWMutex  // 用于配置热加载
+	Server   ServerConfig   `yaml:"server"`
+	Features FeatureFlags   `yaml:"features"`
+	Worker   WorkerConfig   `yaml:"worker"`
+	Queue    QueueConfig    `yaml:"queue"`
+	Database DatabaseConfig `yaml:"database"`
+	mu       sync.RWMutex   // 用于配置热加载
 }
 
 // LoadConfig 加载配置（支持环境变量覆盖）
@@ -69,6 +140,49 @@ func LoadConfig() *Config {
 			EnableStats:      getEnvBool("ENABLE_STATS"),
 			EnableMetrics:    getEnvBool("METRICS_ENABLED"),
 			MaxGreetings:     getEnvInt("MAX_GREETINGS", DefaultMaxGreetings),
+		},
+		Worker: WorkerConfig{
+			Count:       getEnvInt("WORKER_COUNT", DefaultWorkerCount),
+			QueueSize:   getEnvInt("WORKER_QUEUE_SIZE", DefaultWorkerQueueSize),
+			RetryMax:    getEnvInt("WORKER_RETRY_MAX", DefaultWorkerRetryMax),
+			RetryDelay:  getEnvInt("WORKER_RETRY_DELAY", DefaultWorkerRetryDelay),
+			Timeout:     getEnvInt("WORKER_TIMEOUT", DefaultQueueTimeout),
+			BatchSize:   getEnvInt("WORKER_BATCH_SIZE", 10),
+			AutoScale:   getEnvBool("WORKER_AUTO_SCALE"),
+			MinScale:    getEnvInt("WORKER_MIN_SCALE", DefaultWorkerCount),
+			MaxScale:    getEnvInt("WORKER_MAX_SCALE", DefaultWorkerCount*2),
+			Heartbeat:   getEnvInt("WORKER_HEARTBEAT", 30),
+		},
+		Queue: QueueConfig{
+			Name:               getEnv("QUEUE_NAME", DefaultQueueName),
+			Prefetch:           getEnvInt("QUEUE_PREFETCH", DefaultQueuePrefetch),
+			Timeout:            getEnvInt("QUEUE_TIMEOUT", DefaultQueueTimeout),
+			MaxLength:          getEnvInt("QUEUE_MAX_LENGTH", 0),
+			Priority:           getEnvInt("QUEUE_PRIORITY", 5),
+			Durable:            getEnvBool("QUEUE_DURABLE"),
+			AutoDelete:         getEnvBool("QUEUE_AUTO_DELETE"),
+			Exchange:           getEnv("QUEUE_EXCHANGE", ""),
+			RoutingKey:         getEnv("QUEUE_ROUTING_KEY", ""),
+			DeadLetterExchange: getEnv("QUEUE_DLX", ""),
+			DeadLetterQueue:    getEnv("QUEUE_DLQ", ""),
+			TTL:                getEnvInt("QUEUE_TTL", 0),
+		},
+		Database: DatabaseConfig{
+			Host:             getEnv("DB_HOST", DefaultDBHost),
+			Port:             getEnv("DB_PORT", DefaultDBPort),
+			Name:             getEnv("DB_NAME", DefaultDBName),
+			User:             getEnv("DB_USER", ""),
+			Password:         getEnv("DB_PASSWORD", ""),
+			SSLMode:          getEnv("DB_SSL_MODE", "disable"),
+			MaxOpenConns:     getEnvInt("DB_MAX_OPEN_CONNS", DefaultDBMaxOpenConns),
+			MaxIdleConns:     getEnvInt("DB_MAX_IDLE_CONNS", DefaultDBMaxIdleConns),
+			ConnMaxLifetime:  getEnvInt("DB_CONN_MAX_LIFETIME", DefaultDBConnMaxLifetime),
+			ConnMaxIdleTime:  getEnvInt("DB_CONN_MAX_IDLE_TIME", 60),
+			MaxRetries:       getEnvInt("DB_MAX_RETRIES", 3),
+			RetryDelay:       getEnvInt("DB_RETRY_DELAY", 100),
+			TablePrefix:      getEnv("DB_TABLE_PREFIX", ""),
+			PoolSize:         getEnvInt("DB_POOL_SIZE", DefaultDBMaxOpenConns),
+			MinIdleConns:     getEnvInt("DB_MIN_IDLE_CONNS", DefaultDBMaxIdleConns),
 		},
 	}
 	return cfg
@@ -118,6 +232,80 @@ func (c *Config) Validate() error {
 	}
 	if !validLogLevels[strings.ToLower(c.Server.LogLevel)] {
 		errs = append(errs, fmt.Sprintf("LOG_LEVEL must be one of [debug, info, warn, error], got %s", c.Server.LogLevel))
+	}
+
+	// 验证Worker配置
+	if c.Worker.Count <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_COUNT must be greater than 0, got %d", c.Worker.Count))
+	}
+	if c.Worker.Count > 100 {
+		errs = append(errs, fmt.Sprintf("WORKER_COUNT should not exceed 100, got %d", c.Worker.Count))
+	}
+	if c.Worker.QueueSize <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_QUEUE_SIZE must be greater than 0, got %d", c.Worker.QueueSize))
+	}
+	if c.Worker.RetryMax < 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_RETRY_MAX must be non-negative, got %d", c.Worker.RetryMax))
+	}
+	if c.Worker.Timeout <= 0 {
+		errs = append(errs, fmt.Sprintf("WORKER_TIMEOUT must be greater than 0, got %d", c.Worker.Timeout))
+	}
+	if c.Worker.AutoScale {
+		if c.Worker.MinScale <= 0 {
+			errs = append(errs, fmt.Sprintf("WORKER_MIN_SCALE must be greater than 0 when auto_scale is enabled, got %d", c.Worker.MinScale))
+		}
+		if c.Worker.MaxScale < c.Worker.MinScale {
+			errs = append(errs, fmt.Sprintf("WORKER_MAX_SCALE (%d) must be greater than or equal to WORKER_MIN_SCALE (%d)", c.Worker.MaxScale, c.Worker.MinScale))
+		}
+	}
+
+	// 验证Queue配置
+	if c.Queue.Name == "" {
+		errs = append(errs, "QUEUE_NAME cannot be empty")
+	}
+	if c.Queue.Prefetch < 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_PREFETCH must be non-negative, got %d", c.Queue.Prefetch))
+	}
+	if c.Queue.Timeout <= 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_TIMEOUT must be greater than 0, got %d", c.Queue.Timeout))
+	}
+	if c.Queue.MaxLength < 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_MAX_LENGTH must be non-negative, got %d", c.Queue.MaxLength))
+	}
+	if c.Queue.Priority < 0 || c.Queue.Priority > 10 {
+		errs = append(errs, fmt.Sprintf("QUEUE_PRIORITY must be between 0 and 10, got %d", c.Queue.Priority))
+	}
+	if c.Queue.TTL < 0 {
+		errs = append(errs, fmt.Sprintf("QUEUE_TTL must be non-negative, got %d", c.Queue.TTL))
+	}
+
+	// 验证Database配置
+	if c.Database.Host == "" {
+		errs = append(errs, "DB_HOST cannot be empty")
+	}
+	if err := validatePort(c.Database.Port, "DB_PORT"); err != nil {
+		errs = append(errs, err.Error())
+	}
+	if c.Database.Name == "" {
+		errs = append(errs, "DB_NAME cannot be empty")
+	}
+	if c.Database.MaxOpenConns <= 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_OPEN_CONNS must be greater than 0, got %d", c.Database.MaxOpenConns))
+	}
+	if c.Database.MaxOpenConns > 1000 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_OPEN_CONNS should not exceed 1000, got %d", c.Database.MaxOpenConns))
+	}
+	if c.Database.MaxIdleConns < 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_IDLE_CONNS must be non-negative, got %d", c.Database.MaxIdleConns))
+	}
+	if c.Database.MaxIdleConns > c.Database.MaxOpenConns {
+		errs = append(errs, fmt.Sprintf("DB_MAX_IDLE_CONNS (%d) cannot exceed DB_MAX_OPEN_CONNS (%d)", c.Database.MaxIdleConns, c.Database.MaxOpenConns))
+	}
+	if c.Database.ConnMaxLifetime <= 0 {
+		errs = append(errs, fmt.Sprintf("DB_CONN_MAX_LIFETIME must be greater than 0, got %d", c.Database.ConnMaxLifetime))
+	}
+	if c.Database.MaxRetries < 0 {
+		errs = append(errs, fmt.Sprintf("DB_MAX_RETRIES must be non-negative, got %d", c.Database.MaxRetries))
 	}
 
 	if len(errs) > 0 {
@@ -195,4 +383,68 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// GetWorkerTimeout 获取Worker超时时间
+func (c *Config) GetWorkerTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Worker.Timeout) * time.Second
+}
+
+// GetWorkerRetryDelay 获取Worker重试延迟
+func (c *Config) GetWorkerRetryDelay() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Worker.RetryDelay) * time.Second
+}
+
+// GetQueueTimeout 获取队列超时时间
+func (c *Config) GetQueueTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Queue.Timeout) * time.Second
+}
+
+// GetQueueTTL 获取消息TTL
+func (c *Config) GetQueueTTL() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Queue.TTL) * time.Millisecond
+}
+
+// GetDBConnMaxLifetime 获取数据库连接最大生命周期
+func (c *Config) GetDBConnMaxLifetime() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Database.ConnMaxLifetime) * time.Second
+}
+
+// GetDBConnMaxIdleTime 获取数据库空闲连接最大时间
+func (c *Config) GetDBConnMaxIdleTime() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Database.ConnMaxIdleTime) * time.Second
+}
+
+// GetDBRetryDelay 获取数据库重试延迟
+func (c *Config) GetDBRetryDelay() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Duration(c.Database.RetryDelay) * time.Millisecond
+}
+
+// GetDSN 获取数据库连接字符串
+func (c *Config) GetDSN() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return fmt.Sprintf(
+		"host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",
+		c.Database.Host,
+		c.Database.Port,
+		c.Database.Name,
+		c.Database.User,
+		c.Database.Password,
+		c.Database.SSLMode,
+	)
 }

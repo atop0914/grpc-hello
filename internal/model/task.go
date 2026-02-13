@@ -86,12 +86,13 @@ type Task struct {
 
 // TaskEvent 任务状态变更事件
 type TaskEvent struct {
-	ID        string     `json:"id" bson:"_id"`
+	ID         string     `json:"id" bson:"_id"`
+	TaskID     string     `json:"task_id" bson:"task_id"`
 	FromStatus TaskStatus `json:"from_status" bson:"from_status"`
 	ToStatus   TaskStatus `json:"to_status" bson:"to_status"`
-	Message   string     `json:"message" bson:"message"`
-	Timestamp time.Time  `json:"timestamp" bson:"timestamp"`
-	Operator  string     `json:"operator" bson:"operator"`
+	Message    string     `json:"message" bson:"message"`
+	Timestamp  time.Time  `json:"timestamp" bson:"timestamp"`
+	Operator   string     `json:"operator" bson:"operator"`
 }
 
 // NewTask 创建新任务

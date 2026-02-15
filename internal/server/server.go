@@ -46,7 +46,7 @@ func (s *Server) Start() error {
 	}
 
 	// 初始化数据库和仓储（使用绝对路径）
-	db, err := repository.NewSQLite("data/taskflow.db")
+	db, err := repository.NewSQLite("/root/.openclaw/workspace/projects/taskflow/taskflow.db")
 	if err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}

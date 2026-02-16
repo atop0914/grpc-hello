@@ -1,6 +1,6 @@
 # Binaries
-grpc-hello
-grpc-hello-*
+taskflow
+taskflow-*
 *.exe
 *.dll
 *.so

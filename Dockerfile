@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o grpc-hello .
+RUN CGO_ENABLED=0 GOOS=linux go build -o taskflow .
 
 # Final stage: use alpine image for smallest footprint
 FROM alpine:latest
@@ -32,10 +32,10 @@ RUN adduser -D -s /bin/sh grpc-user
 WORKDIR /app
 
 # Copy the binary from builder stage
-COPY --from=builder /app/grpc-hello .
+COPY --from=builder /app/taskflow .
 
 # Change ownership to grpc-user
-RUN chown grpc-user:grpc-user grpc-hello
+RUN chown grpc-user:grpc-user taskflow
 
 # Switch to non-root user
 USER grpc-user
@@ -44,4 +44,4 @@ USER grpc-user
 EXPOSE 8080 8090
 
 # Run the application
-CMD ["./grpc-hello"]
+CMD ["./taskflow"]

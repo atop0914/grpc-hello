@@ -1,6 +1,6 @@
 # Binaries
-grpc-hello
-grpc-hello-*
+taskflow
+taskflow-*
 *.exe
 *.dll
 *.so
@@ -40,3 +40,6 @@ proto/**/*.pb.go
 
 # Project documentation (本地计划，不上传)
 PROJECT_PLAN.md
+# Database
+*.db
+*.db-journal

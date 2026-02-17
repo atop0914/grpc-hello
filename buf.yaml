@@ -1,7 +1,4 @@
-version: v1beta1
-name: buf.build/zhuyitao/grpc_demo
+version: v1
+name: buf.build/zhuyitao/taskflow
 deps:
   - buf.build/googleapis/googleapis
-build:
-  roots:
-    - proto

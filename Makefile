@@ -12,16 +12,18 @@ run:
 deps:
 	go mod tidy
 
-# Generate protobuf files (if needed)
+# Generate protobuf files using protoc
 proto-gen:
-	protoc --proto_path=proto --go_out=proto --go_opt=paths=source_relative \
-		--go-grpc_out=proto --go-grpc_opt=paths=source_relative \
-		--grpc-gateway_out=proto --grpc-gateway_opt=paths=source_relative \
-		proto/helloworld/hello_world.proto
+	mkdir -p proto/gen/go
+	protoc --proto_path=proto \
+		--go_out=proto/gen/go --go_opt=paths=source_relative \
+		--go-grpc_out=proto/gen/go --go-grpc_opt=paths=source_relative \
+		proto/task.proto
 
 # Clean build artifacts
 clean:
 	rm -f taskflow
+	rm -rf proto/gen
 
 # Test the project
 test:
@@ -49,4 +51,4 @@ docker-build:
 	docker build -t taskflow:latest .
 
 docker-run:
-	docker run -p 8080:8080 -p 8090:8090 taskflow:latest
+	docker run -p 8090:8090 taskflow:latest

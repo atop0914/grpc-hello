@@ -36,16 +36,20 @@ taskflow/
 │   ├── model/              # 数据模型 ✅ 已完成
 │   ├── error/              # 错误码定义与处理 ✅ 已完成
 │   ├── repository/         # SQLite 数据访问层 ✅ 已完成
-│   ├── middleware/         # 中间件 ✅ 已完成
 │   ├── handler/            # gRPC Handler ✅ 已完成
-│   ├── server/             # 服务入口 ✅ 已完成
+│   │   └── handler.go      # 任务处理器 (含流式 RPC)
 │   ├── service/            # 业务逻辑层 ✅ 已完成
 │   │   ├── task_service.go  # 任务服务
 │   │   ├── scheduler.go    # 任务调度器
 │   │   └── state_machine.go # 状态机
-├── cmd/
-│   └── server/              # 服务入口
-└── scripts/                 # 工具脚本
+│   ├── server/             # 服务入口 ✅ 已完成
+│   ├── middleware/         # HTTP 中间件 ✅ 已完成
+│   └── grpc_middleware/    # gRPC 中间件 ✅ 已完成
+│       ├── auth.go         # JWT 认证
+│       ├── ratelimit.go    # 限流控制
+│       ├── logger.go       # 日志拦截器
+│       ├── server.go       # 拦截器配置
+│       └── util.go         # 工具函数
 ```
 
 ## 📦 技术栈
@@ -190,10 +194,16 @@ go test ./...
 ### 8. Handler 层 (internal/handler/)
 
 实现 gRPC 处理器：
-- CreateTask - 创建任务
-- GetTask - 获取任务
-- ListTasks - 批量获取任务
-- UpdateTask - 更新任务
+
+| 方法 | 类型 | 描述 |
+|------|------|------|
+| CreateTask | Simple RPC | 创建任务 |
+| GetTask | Simple RPC | 获取任务 |
+| ListTasks | Simple RPC | 批量获取任务 |
+| UpdateTask | Simple RPC | 更新任务 |
+| WatchTask | Server Streaming | 监听任务状态变化 |
+| BatchCreateTasks | Client Streaming | 批量创建任务 |
+| TaskUpdates | Bidirectional | 双向流式通信 |
 
 ### 9. Server 层 (internal/server/)
 
@@ -207,6 +217,18 @@ gRPC/HTTP 服务器：
 通用中间件：
 - 日志中间件
 - 错误处理中间件
+
+### 11. gRPC Middleware 层 (internal/grpc_middleware/)
+
+gRPC 拦截器实现：
+
+| 组件 | 文件 | 功能 |
+|------|------|------|
+| 认证 | auth.go | JWT 认证、公共方法白名单、用户信息注入 |
+| 限流 | ratelimit.go | Token Bucket 限流、Sliding Window 限流 |
+| 日志 | logger.go | 请求/响应日志、Panic Recovery |
+| 工具 | server.go | 拦截器链配置选项 |
+| 工具 | util.go | ID 生成工具 |
 
 ## 📡 API 文档
 
@@ -290,11 +312,12 @@ go test ./internal/service -v -run TestTaskService_CreateTask
 
 ### 测试覆盖
 
-| 包 | 测试数 | 描述 |
-|-----|--------|------|
-| model | 9 | 数据模型单元测试 |
-| repository | 12 | SQLite 持久化测试 |
-| service | 12 | 业务逻辑与调度器测试 |
+| 包 | 测试数 | 覆盖率 | 描述 |
+|-----|--------|--------|------|
+| model | 9 | 100% | 数据模型单元测试 |
+| repository | 12 | 76.8% | SQLite 持久化测试 |
+| service | 12 | 53.4% | 业务逻辑与调度器测试 |
+| handler | 5 | - | 流式 RPC 测试 |
 
 ## 📄 许可证
 
@@ -310,6 +333,8 @@ MIT
 - ✅ 工作池 (WorkerPool)
 - ✅ 状态机 (StateMachine)
 - ✅ 依赖检查器 (DependencyChecker)
+- ✅ gRPC Middleware (认证、限流、日志)
+- ✅ 流式 RPC (WatchTask、BatchCreateTasks、TaskUpdates)
 - ✅ 完整的单元测试与集成测试
 - ✅ README 文档完善
 

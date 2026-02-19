@@ -17,6 +17,15 @@ service TaskService {
   
   // Simple RPC: 更新任务
   rpc UpdateTask(UpdateTaskRequest) returns (Task);
+
+  // Server Streaming: 监听任务状态变化
+  rpc WatchTask(WatchTaskRequest) returns (stream TaskChangeEvent);
+  
+  // Client Streaming: 批量创建任务
+  rpc BatchCreateTasks(stream CreateTaskRequest) returns (BatchCreateTasksResponse);
+  
+  // Bidirectional Streaming: 任务更新流
+  rpc TaskUpdates(stream TaskUpdateRequest) returns (stream TaskUpdateResponse);
 }
 
 // 任务状态枚举
@@ -116,4 +125,49 @@ message UpdateTaskRequest {
   map<string, string> output_result = 3;
   string error_message = 4;
   int32 retry_count = 5;
+}
+
+// ========== 流式 RPC 消息类型 ==========
+
+// WatchTask 请求 - 监听任务状态变化
+message WatchTaskRequest {
+  repeated string task_ids = 1;
+  repeated TaskStatus status_filter = 2;
+  bool include_initial = 3;
+}
+
+// TaskChangeEvent 任务变更事件
+message TaskChangeEvent {
+  string task_id = 1;
+  Task task = 2;
+  TaskStatus from_status = 3;
+  TaskStatus to_status = 4;
+  int64 changed_at = 5;
+  string change_type = 6;
+}
+
+// BatchCreateTasks 响应
+message BatchCreateTasksResponse {
+  repeated Task tasks = 1;
+  int32 success_count = 2;
+  int32 failed_count = 3;
+  repeated string errors = 4;
+}
+
+// TaskUpdateRequest 任务更新请求（双向流）
+message TaskUpdateRequest {
+  string request_id = 1;
+  string update_type = 2;
+  UpdateTaskRequest update = 3;
+  CreateTaskRequest create = 4;
+  WatchTaskRequest watch = 5;
+}
+
+// TaskUpdateResponse 任务更新响应（双向流）
+message TaskUpdateResponse {
+  string request_id = 1;
+  bool success = 2;
+  string error = 3;
+  Task task = 4;
+  TaskChangeEvent change_event = 5;
 }

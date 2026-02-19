@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 
 	"taskflow/internal/config"
 	"taskflow/internal/handler"
@@ -20,10 +22,11 @@ import (
 	pb "taskflow/proto"
 )
 
-// Server HTTP服务封装
+// Server HTTP/gRPC服务封装
 type Server struct {
 	cfg        *config.Config
 	httpServer *http.Server
+	grpcServer *grpc.Server
 	started    bool
 	startMutex sync.Mutex
 	taskHandler *handler.TaskHandler
@@ -60,14 +63,43 @@ func (s *Server) Start() error {
 	taskRepo := repository.NewTaskRepository(db)
 	s.taskHandler = handler.NewTaskHandler(taskRepo)
 
+	// 启动 gRPC 服务器
+	if err := s.startGRPC(); err != nil {
+		return fmt.Errorf("failed to start gRPC: %w", err)
+	}
+
+	// 启动 HTTP 服务器
 	if err := s.startHTTP(); err != nil {
 		return fmt.Errorf("failed to start HTTP: %w", err)
 	}
 
 	s.started = true
-	log.Printf("Server started: HTTP=%s", s.cfg.GetHTTPAddr())
+	log.Printf("Server started: gRPC=%s, HTTP=%s", s.cfg.GetGRPCAddr(), s.cfg.GetHTTPAddr())
 
 	s.waitForShutdown()
+
+	return nil
+}
+
+// startGRPC 启动gRPC服务
+func (s *Server) startGRPC() error {
+	lis, err := net.Listen("tcp", s.cfg.GetGRPCAddr())
+	if err != nil {
+		return fmt.Errorf("failed to listen on gRPC: %w", err)
+	}
+
+	// 创建 gRPC 服务器
+	s.grpcServer = grpc.NewServer()
+	
+	// 注册 TaskService
+	pb.RegisterTaskServiceServer(s.grpcServer, s.taskHandler)
+
+	go func() {
+		log.Printf("gRPC server listening on %s", s.cfg.GetGRPCAddr())
+		if err := s.grpcServer.Serve(lis); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
 
 	return nil
 }

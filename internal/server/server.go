@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	path2 "path"
 	"sync"
 	"syscall"
 	"time"
@@ -48,8 +49,22 @@ func (s *Server) Start() error {
 		return fmt.Errorf("server already started")
 	}
 
-	// 初始化数据库和仓储（使用绝对路径）
-	db, err := repository.NewSQLite("/root/.openclaw/workspace/projects/taskflow/taskflow.db")
+	// 获取用户主目录
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "." // 如果获取失败，使用当前目录
+	}
+
+	// 初始化数据库和仓储（使用用户主目录）
+	dbPath := path2.Join(homeDir, ".taskflow", "taskflow.db")
+	
+	// 确保目录存在
+	dbDir := path2.Dir(dbPath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return fmt.Errorf("failed to create db directory: %w", err)
+	}
+
+	db, err := repository.NewSQLite(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}

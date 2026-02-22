@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"taskflow/internal/logger"
+	"taskflow/internal/metrics"
 	"taskflow/internal/model"
 	"taskflow/internal/repository"
 )
@@ -130,7 +131,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 	// 启动轮询循环
 	go s.pollingLoop()
 
-	log.Printf("Scheduler started")
+	logger.Infof("Scheduler started")
 }
 
 // Stop 停止调度器
@@ -146,7 +147,7 @@ func (s *Scheduler) Stop() {
 	s.running = false
 	s.workerPool.Stop()
 
-	log.Printf("Scheduler stopped")
+	logger.Infof("Scheduler stopped")
 }
 
 // GetStatus 获取调度器状态
@@ -183,7 +184,7 @@ func (s *Scheduler) pollingLoop() {
 func (s *Scheduler) pollPendingTasks() {
 	tasks, err := s.repo.ListPending(s.maxPending)
 	if err != nil {
-		log.Printf("Failed to list pending tasks: %v", err)
+		logger.Errorf("Failed to list pending tasks: %v", err)
 		return
 	}
 
@@ -199,6 +200,10 @@ func (s *Scheduler) pollPendingTasks() {
 	s.statusMu.Lock()
 	s.pendingCnt = len(tasks)
 	s.statusMu.Unlock()
+
+	// 更新 Prometheus 指标
+	metrics.RecordTaskStatus("pending", s.pendingCnt)
+	metrics.RecordTaskStatus("running", s.runningCnt)
 }
 
 // TrySchedule 尝试调度任务
@@ -214,7 +219,7 @@ func (s *Scheduler) TrySchedule(taskID string) error {
 	// 检查依赖
 	ready, err := s.depChecker.CheckDependencies(taskID)
 	if err != nil {
-		log.Printf("Failed to check dependencies for task %s: %v", taskID, err)
+		logger.Infof("Failed to check dependencies for task %s: %v", taskID, err)
 		return err
 	}
 	if !ready {
@@ -238,7 +243,7 @@ func (s *Scheduler) TrySchedule(taskID string) error {
 	// 原子更新状态为 RUNNING
 	err = s.repo.UpdateStatusWithEvent(taskID, model.TaskStatusPending, model.TaskStatusRunning, "scheduler", "task scheduled")
 	if err != nil {
-		log.Printf("Failed to schedule task %s: %v", taskID, err)
+		logger.Infof("Failed to schedule task %s: %v", taskID, err)
 		return err
 	}
 
@@ -247,7 +252,7 @@ func (s *Scheduler) TrySchedule(taskID string) error {
 		s.statusMu.Lock()
 		s.scheduledCnt++
 		s.statusMu.Unlock()
-		log.Printf("Task %s scheduled", taskID)
+		logger.Infof("Task %s scheduled", taskID)
 	}
 
 	return nil
@@ -255,6 +260,8 @@ func (s *Scheduler) TrySchedule(taskID string) error {
 
 // executeTask 执行任务
 func (s *Scheduler) executeTask(taskID string) {
+	startTime := time.Now()
+
 	s.statusMu.Lock()
 	s.runningCnt++
 	s.statusMu.Unlock()
@@ -263,33 +270,42 @@ func (s *Scheduler) executeTask(taskID string) {
 		s.statusMu.Lock()
 		s.runningCnt--
 		s.statusMu.Unlock()
+
+		// 更新 Prometheus 指标
+		metrics.RecordTaskStatus("running", s.runningCnt)
 	}()
 
-	log.Printf("Executing task %s", taskID)
+	logger.Infof("Executing task %s", taskID)
 
 	// 获取最新任务状态
 	task, err := s.repo.GetByID(taskID)
 	if err != nil {
-		log.Printf("Failed to get task %s: %v", taskID, err)
+		logger.Errorf("Failed to get task %s: %v", taskID, err)
+		metrics.RecordTaskError(task.TaskType, "get_error")
 		return
 	}
 
 	// 检查是否被取消
 	if task.Status == model.TaskStatusCancelled {
-		log.Printf("Task %s was cancelled", taskID)
+		logger.Infof("Task %s was cancelled", taskID)
 		return
 	}
 
 	// 执行业务逻辑（这里应该是可扩展的 handler）
 	result, err := s.executeTaskHandler(task)
+	duration := time.Since(startTime).Seconds()
+
 	if err != nil {
 		// 执行失败，更新状态
 		s.handleTaskFailure(taskID, err.Error())
+		metrics.RecordTaskDuration(task.TaskType, "failed", duration)
+		metrics.RecordTaskError(task.TaskType, "execution_error")
 		return
 	}
 
 	// 执行成功
 	s.handleTaskSuccess(taskID, result)
+	metrics.RecordTaskDuration(task.TaskType, "succeeded", duration)
 }
 
 // executeTaskHandler 实际执行任务逻辑
@@ -297,7 +313,7 @@ func (s *Scheduler) executeTaskHandler(task *model.Task) (map[string]string, err
 	// TODO: 实现具体的任务执行逻辑
 	// 这里可以扩展为根据 task.TaskType 调用不同的处理器
 
-	log.Printf("Running task %s of type %s", task.ID, task.TaskType)
+	logger.Infof("Running task %s of type %s", task.ID, task.TaskType)
 
 	// 模拟执行
 	time.Sleep(100 * time.Millisecond)
@@ -313,7 +329,7 @@ func (s *Scheduler) executeTaskHandler(task *model.Task) (map[string]string, err
 func (s *Scheduler) handleTaskSuccess(taskID string, result map[string]string) {
 	err := s.repo.UpdateStatusWithEvent(taskID, model.TaskStatusRunning, model.TaskStatusSucceeded, "scheduler", "task completed")
 	if err != nil {
-		log.Printf("Failed to update task %s status: %v", taskID, err)
+		logger.Errorf("Failed to update task %s status: %v", taskID, err)
 		return
 	}
 
@@ -328,7 +344,10 @@ func (s *Scheduler) handleTaskSuccess(taskID string, result map[string]string) {
 	s.finishedCnt++
 	s.statusMu.Unlock()
 
-	log.Printf("Task %s succeeded", taskID)
+	// 更新 Prometheus 指标
+	metrics.RecordTaskStatus("succeeded", s.finishedCnt)
+
+	logger.Infof("Task %s succeeded", taskID)
 
 	// 检查依赖此任务的其他任务
 	s.checkDependentTasks(taskID)
@@ -345,15 +364,16 @@ func (s *Scheduler) handleTaskFailure(taskID string, errMsg string) {
 	if task.CanRetry() {
 		// 重置为 Pending，等待下次调度
 		err = s.repo.UpdateStatusWithEvent(taskID, model.TaskStatusRunning, model.TaskStatusPending, "scheduler", fmt.Sprintf("retry: %s", errMsg))
-		log.Printf("Task %s failed, will retry (attempt %d/%d)", taskID, task.RetryCount+1, task.MaxRetries)
+		logger.Infof("Task %s failed, will retry (attempt %d/%d)", taskID, task.RetryCount+1, task.MaxRetries)
 	} else {
 		// 标记为失败
 		err = s.repo.UpdateStatusWithEvent(taskID, model.TaskStatusRunning, model.TaskStatusFailed, "scheduler", errMsg)
-		log.Printf("Task %s failed permanently", taskID)
+		logger.Infof("Task %s failed permanently", taskID)
+		metrics.RecordTaskError(task.TaskType, "permanent_failure")
 	}
 
 	if err != nil {
-		log.Printf("Failed to update task %s status: %v", taskID, err)
+		logger.Errorf("Failed to update task %s status: %v", taskID, err)
 	}
 }
 
@@ -361,7 +381,7 @@ func (s *Scheduler) handleTaskFailure(taskID string, errMsg string) {
 func (s *Scheduler) checkDependentTasks(completedTaskID string) {
 	// TODO: 实现依赖查询
 	// 目前需要通过其他方式触发下游任务调度
-	log.Printf("Checking dependent tasks for %s", completedTaskID)
+	logger.Infof("Checking dependent tasks for %s", completedTaskID)
 }
 
 // SetWorkerCount 设置 worker 数量

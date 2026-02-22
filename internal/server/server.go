@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net"
 	"os"
@@ -14,10 +13,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 
 	"taskflow/internal/config"
 	"taskflow/internal/handler"
+	"taskflow/internal/logger"
 	"taskflow/internal/middleware"
 	"taskflow/internal/repository"
 	pb "taskflow/proto"
@@ -89,7 +90,7 @@ func (s *Server) Start() error {
 	}
 
 	s.started = true
-	log.Printf("Server started: gRPC=%s, HTTP=%s", s.cfg.GetGRPCAddr(), s.cfg.GetHTTPAddr())
+	logger.Infof("Server started: gRPC=%s, HTTP=%s", s.cfg.GetGRPCAddr(), s.cfg.GetHTTPAddr())
 
 	s.waitForShutdown()
 
@@ -110,9 +111,9 @@ func (s *Server) startGRPC() error {
 	pb.RegisterTaskServiceServer(s.grpcServer, s.taskHandler)
 
 	go func() {
-		log.Printf("gRPC server listening on %s", s.cfg.GetGRPCAddr())
+		logger.Infof("gRPC server listening on %s", s.cfg.GetGRPCAddr())
 		if err := s.grpcServer.Serve(lis); err != nil {
-			log.Printf("gRPC server error: %v", err)
+			logger.Errorf("gRPC server error: %v", err)
 		}
 	}()
 
@@ -142,6 +143,9 @@ func (s *Server) startHTTP() error {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	// Prometheus 指标端点
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
 	// 注册 API 路由
 	if s.taskHandler != nil {
 		s.registerRoutes(router)
@@ -156,9 +160,9 @@ func (s *Server) startHTTP() error {
 	}
 
 	go func() {
-		log.Printf("HTTP server listening on %s", s.cfg.GetHTTPAddr())
+		logger.Infof("HTTP server listening on %s", s.cfg.GetHTTPAddr())
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("HTTP server error: %v", err)
+			logger.Errorf("HTTP server error: %v", err)
 		}
 	}()
 
@@ -321,7 +325,7 @@ func (s *Server) waitForShutdown() {
 	signal.Notify(stopCh, syscall.SIGINT, syscall.SIGTERM)
 	<-stopCh
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	gracefulTimeout := 10 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
@@ -331,15 +335,24 @@ func (s *Server) waitForShutdown() {
 	s.started = false
 	s.startMutex.Unlock()
 
+	// 优雅关闭 gRPC
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
+		logger.Info("gRPC server stopped gracefully")
+	}
+
+	// 优雅关闭 HTTP
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			log.Printf("Server shutdown error: %v", err)
+			logger.Errorf("HTTP server shutdown error: %v", err)
 		} else {
-			log.Println("Server stopped gracefully")
+			logger.Info("HTTP server stopped gracefully")
 		}
 	}
 
-	log.Println("Server stopped")
+	// 同步日志
+	logger.Sync()
+	logger.Info("Server stopped")
 }
 
 // GetHTTPAddr 获取HTTP地址

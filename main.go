@@ -1,10 +1,10 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"taskflow/internal/config"
+	"taskflow/internal/logger"
 	"taskflow/internal/server"
 )
 
@@ -12,19 +12,26 @@ func main() {
 	// 加载配置
 	cfg := config.LoadConfig()
 
+	// 初始化日志
+	if err := logger.Init(cfg.Server.EnableDebug); err != nil {
+		os.Stderr.WriteString("Failed to initialize logger: " + err.Error())
+		os.Exit(1)
+	}
+	defer logger.Sync()
+
 	// 验证配置
 	if err := cfg.Validate(); err != nil {
-		log.Fatalf("Configuration error: %v", err)
+		logger.Fatalf("Configuration error: %v", err)
 	}
 
-	log.Printf("Starting Task Scheduler Server...")
-	log.Printf("Debug mode: %v", cfg.Server.EnableDebug)
-	log.Printf("HTTP server: %s", cfg.GetHTTPAddr())
+	logger.Infof("Starting Task Scheduler Server...")
+	logger.Infof("Debug mode: %v", cfg.Server.EnableDebug)
+	logger.Infof("HTTP server: %s", cfg.GetHTTPAddr())
 
 	// 创建并启动服务器
 	srv := server.NewServer(cfg)
 	if err := srv.Start(); err != nil {
-		log.Fatalf("Server error: %v", err)
+		logger.Fatalf("Server error: %v", err)
 		os.Exit(1)
 	}
 }

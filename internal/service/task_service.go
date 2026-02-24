@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
+	"taskflow/internal/logger"
 	"taskflow/internal/model"
 	"taskflow/internal/repository"
 )
@@ -176,7 +176,7 @@ func (s *TaskService) recordEvent(task *model.Task, fromStatus, toStatus model.T
 		Operator:   operator,
 	}
 	if err := s.repo.AddEvent(event); err != nil {
-		log.Printf("failed to record event: %v", err)
+		logger.Errorf("failed to record event: %v", err)
 	}
 }
 
@@ -184,7 +184,7 @@ func (s *TaskService) recordEvent(task *model.Task, fromStatus, toStatus model.T
 func (s *TaskService) checkAndScheduleDependencies(completedTask *model.Task) {
 	// 查找所有依赖此任务的任务
 	// 这里需要实现依赖查询逻辑，暂时简化处理
-	log.Printf("Task %s completed, checking dependencies", completedTask.ID)
+	logger.Infof("Task %s completed, checking dependencies", completedTask.ID)
 }
 
 // ListTasks 列出任务

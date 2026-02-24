@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"taskflow/internal/logger"
 )
 
 // RequestID 中间件 - 添加请求ID
@@ -41,7 +42,7 @@ func Logger() gin.HandlerFunc {
 			path = path + "?" + query
 		}
 
-		log.Printf("[%s] %s %s %d %v | %s",
+		logger.Infof("[%s] %s %s %d %v | %s",
 			c.GetHeader("X-Request-ID"),
 			method,
 			path,
@@ -61,7 +62,7 @@ func Recovery() gin.HandlerFunc {
 				if traceID == nil {
 					traceID = "unknown"
 				}
-				log.Printf("[%s] Panic recovered: %v", traceID, err)
+				logger.Errorf("[%s] Panic recovered: %v", traceID, err)
 				c.AbortWithStatusJSON(500, gin.H{
 					"code":    500,
 					"message": "internal server error",
@@ -96,7 +97,7 @@ func RequestBodyLogger() gin.HandlerFunc {
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 			if len(bodyBytes) > 0 && len(bodyBytes) < 1024 {
-				log.Printf("[%s] Request Body: %s", c.GetHeader("X-Request-ID"), string(bodyBytes))
+				logger.Debugf("[%s] Request Body: %s", c.GetHeader("X-Request-ID"), string(bodyBytes))
 			}
 		}
 		c.Next()
@@ -121,7 +122,7 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 				if err := recover(); err != nil {
 					// 记录panic但不再传播
 					traceID := c.GetHeader("X-Request-ID")
-					log.Printf("[%s] Panic in timeout handler: %v", traceID, err)
+					logger.Errorf("[%s] Panic in timeout handler: %v", traceID, err)
 				}
 			}()
 			c.Next()
@@ -134,9 +135,9 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 			// 超时或上下文取消
 			traceID := c.GetHeader("X-Request-ID")
 			if ctx.Err() == context.DeadlineExceeded {
-				log.Printf("[%s] Request timeout after %v", traceID, timeout)
+				logger.Warnf("[%s] Request timeout after %v", traceID, timeout)
 			} else {
-				log.Printf("[%s] Request context cancelled", traceID)
+				logger.Warnf("[%s] Request context cancelled", traceID)
 			}
 			// 终止当前请求的处理，防止goroutine泄漏
 			c.Abort()
